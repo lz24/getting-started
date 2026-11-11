@@ -3,6 +3,7 @@
 FROM --platform=$BUILDPLATFORM python:alpine AS base
 WORKDIR /app
 COPY requirements.txt .
+RUN pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 RUN pip install -r requirements.txt
 
 FROM --platform=$BUILDPLATFORM node:18-alpine AS app-base
@@ -14,11 +15,15 @@ COPY app/src ./src
 # Run tests to validate app
 FROM app-base AS test
 COPY .yarnrc.yml .
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk add --no-cache python3 make g++
 RUN yarn install --immutable
 RUN yarn test
 
 # Clear out the node_modules and create the zip
 FROM app-base AS app-zip-creator
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk add zip && zip -r /app.zip /app
 COPY --from=test /app/package.json /app/yarn.lock ./
 COPY app/spec ./spec
 COPY app/src ./src
